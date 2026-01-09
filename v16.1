@@ -1,0 +1,1897 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Mega Rocket - Neural Link (v16.1)</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@500;700;900&display=swap');
+        
+        :root { 
+            --primary: #00aaff; 
+            --accent: #ff0055;
+            --bg-overlay: rgba(10, 15, 25, 0.75); 
+            --warn: #ff3300; 
+            --success: #00ff66; 
+            --ai-color: #d4a5ff; 
+            --safe-top: env(safe-area-inset-top, 20px);
+            --safe-bottom: env(safe-area-inset-bottom, 20px);
+            --font-mono: 'Share Tech Mono', monospace;
+            --font-ui: 'Rajdhani', sans-serif;
+            --glass-border: 1px solid rgba(255, 255, 255, 0.1);
+            --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+        
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+        
+        body { 
+            margin: 0; padding: 0; 
+            background: #000; color: #fff; 
+            font-family: var(--font-mono); 
+            overflow: hidden; height: 100vh; width: 100vw; 
+            touch-action: none;
+        }
+        
+        canvas { display: block; width: 100%; height: 100%; }
+        
+        /* Debug Console */
+        #debug-console {
+            position: absolute; top: 0; left: 0; width: 100%; height: auto; max-height: 50vh;
+            background: rgba(50, 0, 0, 0.8); color: #ffcccc; 
+            font-size: 10px; padding: 5px; z-index: 10000;
+            overflow-y: auto; display: none; pointer-events: none;
+            white-space: pre-wrap;
+        }
+
+        .ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+        .interactive { pointer-events: auto; cursor: pointer; }
+        .interactive:active { transform: scale(0.96); opacity: 0.8; }
+
+        /* PANELS */
+        .panel { 
+            position: absolute; 
+            background: var(--bg-overlay); 
+            border: var(--glass-border);
+            border-radius: 8px; 
+            padding: 10px; 
+            backdrop-filter: blur(8px); 
+            -webkit-backdrop-filter: blur(8px);
+            pointer-events: none;
+            box-shadow: var(--glass-shadow);
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+        
+        #hud-left { top: calc(var(--safe-top) + 10px); left: 10px; width: 150px; border-left: 3px solid var(--primary); transform-origin: top left; }
+        .stat-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 11px; color: #8899aa; margin-bottom: 4px; }
+        .stat-val { font-family: var(--font-ui); font-weight: 700; color: #fff; font-size: 18px; letter-spacing: 1px; }
+        #timer { font-size: 24px; color: #ffcc00; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 8px; padding-bottom: 4px; font-variant-numeric: tabular-nums; text-shadow: 0 0 10px rgba(255, 204, 0, 0.4); }
+
+        /* SETTINGS */
+        #settings-panel {
+            top: calc(var(--safe-top) + 60px); right: 10px; width: 180px;
+            display: none; z-index: 100; pointer-events: auto;
+            border-right: 3px solid #fff;
+        }
+        .setting-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 12px; color: #ccc; }
+        
+        /* IMPROVED TOGGLE SWITCH */
+        .toggle-switch { width: 36px; height: 20px; background: #334; border-radius: 10px; position: relative; transition: 0.3s; cursor: pointer; border: 1px solid #556; }
+        .toggle-knob { width: 14px; height: 14px; background: #fff; border-radius: 50%; position: absolute; top: 2px; left: 3px; transition: 0.3s; box-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+        .toggle-switch.on { background: var(--success); border-color: var(--success); }
+        .toggle-switch.on .toggle-knob { transform: translateX(16px); }
+
+        /* REPORT PANEL */
+        #report-panel {
+            top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 320px; height: auto; max-height: 80vh;
+            background: rgba(5, 10, 15, 0.95); border: 1px solid var(--primary);
+            z-index: 200; display: none; pointer-events: auto;
+            flex-direction: column; gap: 12px;
+            box-shadow: 0 0 30px rgba(0, 170, 255, 0.2);
+        }
+        #report-title { font-family: var(--font-ui); font-size: 22px; color: var(--primary); text-align: center; border-bottom: 1px solid #333; padding-bottom: 8px; letter-spacing: 2px; }
+        #report-content { font-size: 13px; color: #eee; line-height: 1.6; }
+        #report-ai { margin-top: 5px; padding: 12px; background: rgba(212, 165, 255, 0.05); border-left: 3px solid var(--ai-color); font-style: italic; color: #eebbff; font-size: 12px; min-height: 50px; border-radius: 0 4px 4px 0; }
+        .close-btn { align-self: center; margin-top: 10px; padding: 8px 30px; border: 1px solid var(--primary); background: rgba(0, 170, 255, 0.1); color: var(--primary); cursor: pointer; font-family: var(--font-ui); font-weight: bold; transition: all 0.2s; }
+        .close-btn:hover { background: var(--primary); color: #000; }
+
+        /* WEATHER & MINIMAP */
+        #weather { top: calc(var(--safe-top) + 10px); right: 10px; text-align: right; border-right: 3px solid var(--success); width: auto; min-width: 130px; transform-origin: top right; }
+        #real-time { font-size: 20px; font-weight: 700; font-family: var(--font-ui); color: #fff; }
+        #weather-info { font-size: 11px; color: #aaa; text-transform: uppercase; margin-top: 2px; }
+
+        #minimap-container { 
+            top: calc(var(--safe-top) + 90px); right: 10px; 
+            width: 140px; height: 140px; padding: 0; 
+            overflow: hidden; 
+            transition: transform 0.3s; 
+            border-radius: 50%; 
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            background: radial-gradient(circle, #001a33 0%, #000 100%);
+            box-shadow: 0 0 15px rgba(0,0,0,0.5);
+        }
+        #minimap-container.closed { transform: scale(0); opacity: 0; }
+        #minimap-canvas { width: 100%; height: 100%; }
+
+        /* CONTROLS */
+        #controls-area { 
+            position: absolute; bottom: 0; left: 0; width: 100%; 
+            display: flex; justify-content: space-between; align-items: flex-end; 
+            padding: 20px;
+            background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%); 
+            pointer-events: none; 
+            transition: all 0.3s;
+        }
+        
+        #joystick-zone { width: 130px; height: 130px; background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.15); border-radius: 50%; position: relative; pointer-events: auto; touch-action: none; margin-bottom: 20px; }
+        #stick-handle { width: 50px; height: 50px; background: radial-gradient(circle at 30% 30%, #445566, #112233); border: 1px solid var(--primary); border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+
+        #throttle-zone { width: 50px; height: 200px; background: rgba(10,20,30,0.6); border: 1px solid rgba(255,255,255,0.2); border-radius: 25px; position: relative; overflow: hidden; pointer-events: auto; touch-action: none; margin-bottom: 20px; backdrop-filter: blur(4px); }
+        #throttle-fill { position: absolute; bottom: 0; left: 0; width: 100%; height: 0%; background: linear-gradient(to top, var(--warn), #ffcc00); opacity: 0.8; transition: height 0.05s linear; }
+        #throttle-knob { position: absolute; left: 0; bottom: 0%; width: 100%; height: 20px; background: #fff; border-radius: 2px; transform: translateY(50%); pointer-events: none; box-shadow: 0 0 10px #fff; }
+        .throttle-mark { position: absolute; right: 5px; font-size: 9px; color: rgba(255,255,255,0.5); pointer-events: none; }
+
+        #btn-group { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; margin-bottom: 30px; pointer-events: auto; width: 100%; max-width: 380px; margin-left: 20px; margin-right: 20px; }
+        .btn { width: 100%; height: 55px; background: rgba(30,40,50,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff; font-size: 10px; font-weight: bold; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: all 0.1s; backdrop-filter: blur(4px); }
+        .btn i { font-size: 16px; margin-bottom: 2px; }
+        .btn.active { border-color: var(--primary); background: rgba(0,170,255,0.25); color: var(--primary); box-shadow: 0 0 15px rgba(0,170,255,0.2); }
+        .btn.disabled { opacity: 0.3; pointer-events: none; filter: grayscale(1); }
+        .btn:active { transform: scale(0.95); }
+        
+        .btn-ai { border-color: var(--ai-color); color: var(--ai-color); }
+        .btn-ai.active, .btn-ai:active { background: rgba(212, 165, 255, 0.2); box-shadow: 0 0 15px rgba(212, 165, 255, 0.2); }
+        
+        .btn-bft { border-color: #ff9900; color: #ff9900; }
+        .btn-bft:active { background: rgba(255, 153, 0, 0.3); }
+
+        #top-btns { position: absolute; top: calc(var(--safe-top) + 10px); left: 170px; display: flex; gap: 10px; pointer-events: auto; }
+        .mini-btn { width: 36px; height: 36px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; color: #fff; display: flex; justify-content: center; align-items: center; font-size: 16px; backdrop-filter: blur(4px); transition: 0.2s; }
+        .mini-btn:hover { background: rgba(255,255,255,0.1); }
+
+        #auto-selector { 
+            position: absolute; bottom: 250px; left: 50%; transform: translateX(-50%) scale(0); 
+            width: 220px; background: rgba(0, 20, 40, 0.95); 
+            border: 1px solid var(--primary); border-radius: 12px; padding: 12px; 
+            display: flex; flex-direction: column; gap: 8px; z-index: 100; 
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); pointer-events: auto; 
+            box-shadow: 0 0 20px rgba(0, 170, 255, 0.3);
+        }
+        #auto-selector.active { transform: translateX(-50%) scale(1); }
+        .selector-btn { background: rgba(0, 100, 200, 0.15); border: 1px solid var(--primary); color: #fff; padding: 12px; border-radius: 6px; cursor: pointer; text-align: center; font-weight: bold; font-family: var(--font-ui); font-size: 15px; transition: background 0.2s; }
+        .selector-btn:hover { background: rgba(0, 100, 200, 0.4); }
+
+        #center-msg { position: absolute; top: 30%; width: 100%; text-align: center; font-size: 32px; font-weight: 800; color: var(--primary); text-shadow: 0 0 20px var(--primary); pointer-events: none; opacity: 0; transition: opacity 0.2s; font-family: var(--font-ui); z-index: 20; letter-spacing: 4px; }
+        #ai-subtitle { position: absolute; top: 15%; width: 80%; left: 10%; text-align: center; color: var(--ai-color); font-family: var(--font-ui); font-weight: 700; text-shadow: 0 0 10px rgba(0,0,0,0.8); font-size: 16px; pointer-events: none; opacity: 0; transition: opacity 0.5s; background: rgba(0,0,0,0.7); padding: 12px; border-radius: 8px; border: 1px solid var(--ai-color); backdrop-filter: blur(4px); }
+        #countdown { position: absolute; top: 35%; width: 100%; text-align: center; font-size: 120px; font-weight: 900; color: #fff; text-shadow: 0 0 40px var(--warn); pointer-events: none; font-family: var(--font-ui); opacity: 0; transition: opacity 0.2s; z-index: 20; }
+        
+        #vessel-tag { position: absolute; bottom: 230px; left: 20px; background: rgba(0,0,0,0.6); padding: 6px 14px; border: 1px solid var(--primary); border-radius: 20px; font-size: 11px; color: var(--primary); pointer-events: auto; font-weight: bold; backdrop-filter: blur(4px); transition: all 0.2s; }
+        #vessel-tag:hover { background: var(--primary); color: #000; }
+        #auto-tag { position: absolute; bottom: 210px; left: 20px; font-size: 11px; color: var(--success); text-shadow: 0 0 5px #000; opacity: 0; transition: opacity 0.3s; font-weight: bold; }
+
+        /* Start Screen */
+        #start-screen { position: absolute; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.5s; pointer-events: auto; cursor: pointer; background-image: radial-gradient(circle at 50% 50%, #0d1a26 0%, #000 80%); }
+        #start-screen:active { background-image: radial-gradient(circle at 50% 50%, #1a2b3c 0%, #000 80%); }
+        #start-screen.fade-out { opacity: 0; pointer-events: none; }
+        .title-text { font-family: var(--font-ui); font-size: 56px; color: #fff; text-shadow: 0 0 30px var(--primary); margin-bottom: 5px; font-weight: 900; letter-spacing: -2px; text-transform: uppercase; }
+        .version-text { color:#8899aa; margin-bottom:50px; font-size:16px; letter-spacing: 2px; text-transform: uppercase; }
+        .big-btn { padding: 18px 60px; font-size: 22px; font-weight: 800; background: var(--primary); border: none; border-radius: 2px; color: #000; box-shadow: 0 0 25px var(--primary); cursor: pointer; font-family: var(--font-ui); letter-spacing: 3px; clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%); transition: all 0.1s; pointer-events: none; text-transform: uppercase; }
+        #start-screen:active .big-btn { transform: scale(0.96); background: #fff; box-shadow: 0 0 40px #fff; }
+
+        #replay-indicator { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: #cc0000; color: #fff; padding: 6px 18px; border-radius: 20px; font-weight: bold; font-family: var(--font-ui); z-index: 50; display: none; animation: pulse 1s infinite; box-shadow: 0 0 15px #cc0000; font-size: 14px; }
+        @keyframes pulse { 0% { opacity: 0.7; } 50% { opacity: 1; } 100% { opacity: 0.7; } }
+
+        @media (orientation: landscape) {
+            #controls-area { padding: 10px 40px; height: 160px; }
+            #joystick-zone { width: 120px; height: 120px; margin-bottom: 0; }
+            #throttle-zone { width: 40px; height: 140px; margin-bottom: 0; }
+            .btn { width: auto; min-width: 70px; height: 50px; font-size: 10px; }
+            #btn-group { grid-template-columns: repeat(4, 1fr); max-width: 450px; margin-bottom: 0; }
+        }
+        @media (max-width: 768px) {
+            #controls-area { height: 260px; padding-bottom: calc(var(--safe-bottom) + 10px); flex-wrap: wrap; justify-content: center; }
+            #joystick-zone { width: 120px; height: 120px; order: 2; margin: 0 20px; }
+            #throttle-zone { order: 3; margin: 0 20px; }
+            #btn-group { order: 1; grid-template-columns: repeat(4, 1fr); margin: 0 0 15px 0; width: 100%; max-width: 100%; gap: 6px; }
+            .btn { height: 45px; font-size: 9px; }
+            #hud-left, #weather { transform: scale(0.9); }
+            .title-text { font-size: 40px; }
+        }
+    </style>
+    <script>
+        window.onerror = function(msg, url, line) {
+            const el = document.getElementById('debug-console');
+            if(el) { el.style.display = 'block'; el.innerText += "Err: " + msg + " (L" + line + ")\n"; }
+            return false;
+        };
+    </script>
+</head>
+<body>
+
+<canvas id="game-canvas"></canvas>
+<div id="debug-console"></div>
+<div id="replay-indicator">⏪ REPLAY MODE</div>
+
+<div class="ui-layer">
+    <div id="hud-left" class="panel">
+        <div id="timer">T- 10.0</div>
+        <div class="stat-row">ALTITUDE <span class="stat-val"><span id="val-alt">0</span>m</span></div>
+        <div class="stat-row">SPEED <span class="stat-val"><span id="val-spd">0</span>m/s</span></div>
+        <div class="stat-row">PROPELLANT <span class="stat-val"><span id="val-fuel">100</span>%</span></div>
+        <div style="margin-top:5px; height:2px; background:#333; width:100%; position:relative;">
+            <div id="fuel-bar" style="width:100%; height:100%; background:var(--primary); transition:width 0.1s;"></div>
+        </div>
+    </div>
+    
+    <div id="weather" class="panel">
+        <div id="real-time">--:--</div>
+        <div id="weather-info">LINKING...</div>
+    </div>
+
+    <div id="minimap-container" class="panel">
+        <canvas id="minimap-canvas"></canvas>
+    </div>
+
+    <div id="top-btns">
+        <button class="mini-btn interactive" id="btn-settings" title="Settings">⚙️</button>
+        <button class="mini-btn interactive" id="btn-map" title="Map">🗺️</button>
+        <button class="mini-btn interactive" id="btn-audio" title="Audio">🔇</button>
+    </div>
+
+    <div id="settings-panel" class="panel">
+        <div class="setting-row">
+            <span>TRAJECTORY PREVIEW</span>
+            <div class="toggle-switch on" id="opt-traj"><div class="toggle-knob"></div></div>
+        </div>
+        <div class="setting-row">
+            <span>REALISTIC MASS</span>
+            <div class="toggle-switch on" id="opt-mass"><div class="toggle-knob"></div></div>
+        </div>
+        <div class="setting-row">
+            <span>AUTO REPLAY</span>
+            <div class="toggle-switch on" id="opt-replay"><div class="toggle-knob"></div></div>
+        </div>
+    </div>
+
+    <!-- Report Modal -->
+    <div id="report-panel" class="panel">
+        <div id="report-title">MISSION STATUS</div>
+        <div id="report-content">Acquiring telemetry...</div>
+        <div id="report-ai">Establishing Neural Link...</div>
+        <div class="close-btn interactive" onclick="document.getElementById('report-panel').style.display='none'">DISMISS</div>
+    </div>
+
+    <div id="center-msg"></div>
+    <div id="ai-subtitle"></div>
+    <div id="countdown"></div>
+    <div id="vessel-tag" class="interactive">BOOSTER</div>
+    <div id="auto-tag">AUTO</div>
+
+    <div id="auto-selector" class="panel">
+        <div style="text-align:center; color:var(--primary); font-size:11px; margin-bottom:8px; letter-spacing:2px; font-weight:bold;">FLIGHT COMPUTER</div>
+        <div class="selector-btn" id="mode-land">🎯 AUTO LAND</div>
+        <div class="selector-btn" id="mode-hover">⚓ STABILIZE</div>
+        <div class="selector-btn" id="mode-off" style="border-color:#555; opacity:0.7; color:#aaa;">❌ MANUAL CONTROL</div>
+    </div>
+
+    <div id="controls-area">
+        <div id="joystick-zone">
+            <div id="stick-handle"></div>
+        </div>
+        <div id="btn-group">
+            <button class="btn interactive" id="btn-cam"><i>🔄</i>CAM</button>
+            <button class="btn interactive" id="btn-gear"><i>⚙️</i>GEAR</button>
+            <button class="btn interactive" id="btn-sas"><i>⚓</i>SAS</button>
+            <button class="btn interactive disabled" id="btn-auto"><i>🤖</i>AUTO</button>
+            <button class="btn interactive" id="btn-sep"><i>🚀</i>SEP</button>
+            <button class="btn interactive" id="btn-rst"><i>↻</i>RST</button>
+            <button class="btn interactive btn-bft" id="btn-bft"><i>🔥</i>BOOST</button>
+            <button class="btn interactive btn-ai" id="btn-ai-status"><i>📊</i>STATUS</button>
+        </div>
+        <div id="throttle-zone">
+            <div style="position:absolute; top:10%; right:5px;" class="throttle-mark">MAX</div>
+            <div style="position:absolute; top:50%; right:5px;" class="throttle-mark">50</div>
+            <div style="position:absolute; bottom:10%; right:5px;" class="throttle-mark">IDLE</div>
+            <div id="throttle-fill"></div>
+            <div id="throttle-knob"></div>
+        </div>
+    </div>
+</div>
+
+<div id="start-screen">
+    <div class="title-text">MEGA ROCKET</div>
+    <div class="version-text">NEURAL LINK v16.1</div>
+    <div style="font-size:14px; color:#fff; margin-bottom:20px; animation: pulse 2s infinite;">TAP ANYWHERE TO INITIALIZE</div>
+    <button class="big-btn" id="btn-launch">LAUNCH</button>
+</div>
+
+<script>
+// --- CONSTANTS ---
+const CONSTANTS = {
+    VESSEL: { BOOSTER: 'booster', SHIP: 'ship' },
+    STATE: { MENU: 'MENU', COUNTDOWN: 'COUNTDOWN', FLIGHT: 'FLIGHT', REPLAY: 'REPLAY' },
+    AUTO: { OFF: 'OFF', LAND: 'LAND', HOVER: 'HOVER', ORBIT: 'ORBIT', COAST: 'COAST' },
+    COLORS: { PRIMARY: '#00aaff', SUCCESS: '#00ff66', WARN: '#ff3300' }
+};
+
+const Utils = { 
+    clamp: (v, m, M) => Math.max(m, Math.min(M, v)), 
+    lerp: (a, b, t) => a + (b - a) * t,
+    dist: (x1, y1, x2, y2) => Math.sqrt((x2-x1)**2 + (y2-y1)**2),
+    rand: (min, max) => Math.random() * (max - min) + min,
+    normalizeAngle: (a) => {
+        while (a > Math.PI) a -= 2 * Math.PI;
+        while (a < -Math.PI) a += 2 * Math.PI;
+        return a;
+    }
+};
+
+const CONFIG = {
+    G: 9.81, PAD_Y: 0,
+    MECHAZILLA: { Y: -120, X: -40, W: 30, TOWER_W: 30, ARM_W: 60, ARM_H: 14 },
+    SHIP_PAD: { X: 250, Y: 0, W: 60 },
+    BOOSTER: { THRUST: 140000, MASS: 600, FUEL: 2000, H: 120, W: 20, DRAG: 0.8 }, 
+    SHIP: { THRUST: 50000, MASS: 250, FUEL: 800, H: 70, W: 20, DRAG: 2.5 }, 
+    ATMOSPHERE: { DENSITY: 1.5, HEIGHT: 40000 },
+    CAM: { ZOOM_MIN: 0.05, ZOOM_MAX: 4.0 }, 
+    DT_FIXED: 1/60
+};
+
+// --- GEMINI AI INTEGRATION (v2.5) ---
+class GeminiBridge {
+    constructor() {
+        this.apiKey = ""; // Automatically injected by environment if available
+        this.modelText = "gemini-2.5-flash-preview-09-2025";
+        this.modelTTS = "gemini-2.5-flash-preview-tts";
+        this.isProcessing = false;
+    }
+
+    async generateCommentary(context, isReport = false) {
+        if (this.isProcessing) return;
+        this.isProcessing = true;
+        const btn = document.getElementById('btn-ai-status');
+        if(btn) btn.style.opacity = 0.5;
+
+        // Visual feedback
+        const reportEl = document.getElementById('report-ai');
+        if(isReport && reportEl) reportEl.innerText = "Connecting to Neural Net...";
+
+        const sysPrompt = isReport 
+            ? `You are a futuristic flight computer (AI). Provide a short, technical mission status report based on telemetry. Use standard aerospace jargon. Keep it under 40 words.`
+            : `You are a flight computer. Provide a concise status update or warning. Keep it under 15 words. Tone: Robotic, Calm.`;
+
+        const userPrompt = `Telemetry Data: ${context}`;
+
+        try {
+            // Check if key exists (in a real scenario, this would be injected)
+            const keyToUse = this.apiKey; 
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.modelText}:generateContent?key=${keyToUse}`;
+            
+            // If no key, simulate AI for demo purposes
+            if(!keyToUse) throw new Error("No API Key");
+
+            const payload = {
+                contents: [{ parts: [{ text: userPrompt }] }],
+                systemInstruction: { parts: [{ text: sysPrompt }] }
+            };
+
+            const response = await this.fetchWithBackoff(url, payload);
+            const data = await response.json();
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "Data Link Unstable";
+            
+            if (isReport && reportEl) {
+                reportEl.innerText = "AI: " + text;
+            } else {
+                this.displaySubtitle(text);
+                await this.speak(text);
+            }
+
+        } catch (e) {
+            // Fallback for demo without API key
+            const fallbackMsg = isReport ? "AI: Telemetry Nominal. Trajectory confirmed." : "Systems Nominal.";
+            if(isReport && reportEl) reportEl.innerText = fallbackMsg;
+            else {
+                this.displaySubtitle(fallbackMsg);
+                if(Math.random() > 0.5) this.speak(fallbackMsg, true); // Use local TTS fallback
+            }
+        } finally {
+            this.isProcessing = false;
+            if(btn) btn.style.opacity = 1;
+        }
+    }
+
+    async speak(text, forceLocal = false) {
+        if (forceLocal || !this.apiKey) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const u = new SpeechSynthesisUtterance(text);
+                u.lang = 'en-US'; u.rate = 1.2; u.pitch = 0.8;
+                window.speechSynthesis.speak(u);
+            }
+            return;
+        }
+
+        try {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.modelTTS}:generateContent?key=${this.apiKey}`;
+            const payload = {
+                contents: [{ parts: [{ text: text }] }],
+                generationConfig: {
+                    responseModalities: ["AUDIO"],
+                    speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Kore" } } }
+                }
+            };
+            
+            const response = await this.fetchWithBackoff(url, payload);
+            const data = await response.json();
+            const audioData = data.candidates[0].content.parts[0].inlineData.data;
+            this.playAudio(audioData);
+        } catch (e) {
+            console.error("TTS Error:", e);
+        }
+    }
+
+    playAudio(base64Data) {
+        try {
+            const binaryString = window.atob(base64Data);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
+            
+            const audioCtx = window.game.audio.ctx;
+            if(!audioCtx) return;
+
+            const wavBuffer = this.pcmToWav(bytes, 24000);
+            
+            audioCtx.decodeAudioData(wavBuffer.buffer, (buffer) => {
+                const source = audioCtx.createBufferSource();
+                source.buffer = buffer;
+                source.connect(audioCtx.destination);
+                source.start(0);
+            });
+        } catch(e) { console.error("Audio Decode Error", e); }
+    }
+
+    pcmToWav(pcmData, sampleRate) {
+        const numChannels = 1;
+        const bitsPerSample = 16;
+        const byteRate = sampleRate * numChannels * bitsPerSample / 8;
+        const blockAlign = numChannels * bitsPerSample / 8;
+        const wavHeader = new ArrayBuffer(44 + pcmData.length);
+        const view = new DataView(wavHeader);
+
+        const writeString = (offset, string) => {
+            for (let i = 0; i < string.length; i++) view.setUint8(offset + i, string.charCodeAt(i));
+        };
+
+        writeString(0, 'RIFF');
+        view.setUint32(4, 36 + pcmData.length, true);
+        writeString(8, 'WAVE');
+        writeString(12, 'fmt ');
+        view.setUint32(16, 16, true);
+        view.setUint16(20, 1, true);
+        view.setUint16(22, numChannels, true);
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, byteRate, true);
+        view.setUint16(32, blockAlign, true);
+        view.setUint16(34, bitsPerSample, true);
+        writeString(36, 'data');
+        view.setUint32(40, pcmData.length, true);
+        
+        const pcmView = new Uint8Array(wavHeader, 44);
+        pcmView.set(pcmData);
+        
+        return new Uint8Array(wavHeader);
+    }
+
+    async fetchWithBackoff(url, payload, retries = 3) {
+        let delay = 1000;
+        for (let i = 0; i < retries; i++) {
+            try {
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) return res;
+            } catch (e) {}
+            await new Promise(r => setTimeout(r, delay));
+            delay *= 2;
+        }
+        throw new Error("API Failed");
+    }
+
+    displaySubtitle(text) {
+        const el = document.getElementById('ai-subtitle');
+        if (el) {
+            el.innerText = text;
+            el.style.opacity = 1;
+            setTimeout(() => { el.style.opacity = 0; }, 5000);
+        }
+    }
+}
+
+// --- MANAGERS ---
+class SettingsManager {
+    constructor() {
+        const defaults = { trajectory: true, massShift: true, replay: true };
+        this.config = defaults;
+        this.STORAGE_KEY = 'rocket-config-v16';
+        this.load();
+    }
+    load() {
+        try {
+            const saved = localStorage.getItem(this.STORAGE_KEY);
+            if (saved) this.config = { ...this.config, ...JSON.parse(saved) };
+        } catch(e) {}
+    }
+    save() { try { localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.config)); } catch(e) {} }
+    toggle(key, el) {
+        this.config[key] = !this.config[key];
+        if(el) el.classList.toggle('on', this.config[key]);
+        this.save();
+    }
+    applyToDOM() {
+        try {
+            const bind = (id, k) => { const el = document.getElementById(id); if(el) el.classList.toggle('on', this.config[k]); };
+            bind('opt-traj', 'trajectory');
+            bind('opt-mass', 'massShift');
+            bind('opt-replay', 'replay');
+        } catch(e) {}
+    }
+}
+
+class ParticleSystem {
+    constructor(maxParticles = 1200) {
+        this.particles = [];
+        this.pool = [];
+        this.maxParticles = maxParticles;
+    }
+    add(x, y, vx, vy, s, type, life = 1.0) {
+        // Simple culling if too many
+        if (this.particles.length >= this.maxParticles) return;
+        
+        let p = this.pool.pop() || {};
+        p.x = x; p.y = y; p.vx = vx; p.vy = vy; p.s = s; 
+        p.c = type; 
+        p.life = life; p.maxLife = life; p.active = true;
+        this.particles.push(p);
+    }
+    update(dt) {
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+            const p = this.particles[i];
+            p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.s *= 0.96;
+            if (p.life <= 0) { 
+                p.active = false; 
+                this.pool.push(this.particles.splice(i, 1)[0]); 
+            }
+        }
+    }
+    clear() { 
+        while(this.particles.length > 0) this.pool.push(this.particles.pop()); 
+    }
+}
+
+class PhysicsEngine {
+    constructor(game) { this.game = game; }
+    
+    update(v, dt) {
+        if (v.caught) return this.updateCaught(v, dt);
+        if (!v.landed && v.active && !v.crashed) {
+            this.updateFlight(v, dt);
+            const safeLaunch = (!v.hasLiftedOff);
+            // Landing detection
+            if (!safeLaunch && v.y + v.h/2 >= CONFIG.PAD_Y - (v.gear * v.gearOffset)) this.game.handleLanding(v, 'LANDED');
+            // Liftoff detection
+            if (!v.hasLiftedOff && v.y < CONFIG.PAD_Y - v.h/2 - 30) v.hasLiftedOff = true;
+        }
+    }
+
+    updateCaught(v, dt) {
+        v.th = 0; v.thTgt = 0;
+        const tx = CONFIG.MECHAZILLA.X;
+        const ty = CONFIG.MECHAZILLA.Y + 5; 
+        // Magnetic snap effect
+        v.vx += (tx - v.x) * 10.0 * dt - v.vx * 5.0 * dt; 
+        v.vy += (ty - v.y) * 10.0 * dt - v.vy * 5.0 * dt;
+        v.angVel += (-Math.sin(v.ang) * CONFIG.G) * dt - v.angVel * 3.0 * dt;
+        if(Math.abs(v.x - tx) < 1 && Math.abs(v.y - ty) < 1) {
+            v.x = tx; v.y = ty; v.vx = 0; v.vy = 0;
+        }
+        this.integrate(v, dt);
+    }
+
+    updateFlight(v, dt) {
+        if (v.fuel <= 0) { v.fuel = 0; v.thTgt = 0; }
+        if (this.game.settings.config.replay && this.game.time % 0.05 < dt) this.game.recordHistory(v);
+        
+        if (v.id === this.game.focus) {
+            if (v.auto) this.game.autopilot.run(v, dt); else this.applyInput(v, dt);
+        } else if (v.auto) {
+            this.game.autopilot.run(v, dt);
+        }
+
+        // Engine response lag
+        const lerpFactor = v.auto ? 0.2 : 0.1;
+        v.th = Utils.lerp(v.th, v.fuel > 0 ? v.thTgt : 0, lerpFactor);
+        
+        // Gear animation
+        v.gear = Utils.lerp(v.gear, v.gearTgt ? 1 : 0, 0.1);
+        
+        // Gravity
+        v.vy += CONFIG.G * dt;
+        
+        // Thrust
+        if (v.th > 0.001) {
+            const mass = v.mass + (v.fuel / 100) * v.mass;
+            const f = v.thrust * v.th;
+            v.vx += (Math.sin(v.ang) * f / mass) * dt;
+            v.vy -= (Math.cos(v.ang) * f / mass) * dt;
+            v.fuel -= v.th * 0.5 * dt;
+            
+            // Particles
+            const count = Math.ceil(v.th * 4); 
+            for(let i = 0; i < count; i++) {
+                const speed = 120 + Math.random() * 40;
+                const spread = (Math.random() - 0.5) * 15;
+                const evx = -Math.sin(v.ang) * speed + spread;
+                const evy = Math.cos(v.ang) * speed;
+                const exX = v.x - Math.sin(v.ang) * (v.h/2 + 2); 
+                const exY = v.y + Math.cos(v.ang) * (v.h/2 + 2);
+                const pType = Math.random() < 0.2 ? 'smoke' : 'fire';
+                const pSize = Utils.rand(5, 12);
+                const life = 0.3 + Math.random() * 0.3;
+                this.game.particles.add(exX, exY, v.vx + evx, v.vy + evy, pSize, pType, life);
+            }
+        }
+        this.applyAerodynamics(v, dt);
+        this.integrate(v, dt);
+        
+        // Trail
+        if (this.game.time % 0.1 < dt) {
+            v.trail.push({x: v.x, y: v.y});
+            if (v.trail.length > 50) v.trail.shift();
+        }
+        
+        // Catch Detection
+        if (v.type === CONSTANTS.VESSEL.BOOSTER && v.hasLiftedOff) {
+            const pinY = v.y - 40; 
+            const towerY = CONFIG.MECHAZILLA.Y;
+            if (pinY > towerY - 20 && pinY < towerY + 30) {
+                if (Math.abs(v.x - CONFIG.MECHAZILLA.X) < 20) {
+                    // Check velocities for catch
+                    if (Math.abs(v.vy) < 15 && Math.abs(v.vx) < 5 && Math.abs(v.ang) < 0.2) {
+                        this.game.handleLanding(v, 'MECHAZILLA CATCH');
+                    }
+                }
+            }
+        }
+    }
+
+    applyInput(v, dt) {
+        if (v.fuel > 0 && v.hasLiftedOff) v.thTgt = this.game.input.th;
+        let turn = this.game.input.x * 2.0; 
+        if (this.game.settings.config.massShift) turn *= (1.5 - (0.4 + (v.fuel/v.fuelMax)*0.6) * 0.5);
+        v.angVel += turn * dt;
+        
+        // SAS (Stability Assist System)
+        if (this.game.sas && Math.abs(this.game.input.x) < 0.05) {
+            v.angVel -= v.angVel * 4.0 * dt; 
+        }
+    }
+    
+    applyAerodynamics(v, dt) {
+        const alt = -v.y;
+        const den = Math.max(0, 1 - alt/CONFIG.ATMOSPHERE.HEIGHT);
+        if (den <= 0) return;
+        
+        let baseWind = (this.game.weather.wind / 3.6) || 0;
+        if (alt > 5000 && alt < 15000) baseWind += 30; // Jetstream
+        const gust = (Math.random() - 0.5) * baseWind * 0.6;
+        const windX = baseWind + gust;
+        
+        const rVx = v.vx - windX;
+        const rVy = v.vy;
+        const spd = Math.sqrt(rVx*rVx + rVy*rVy);
+        if (spd < 0.1) return;
+
+        const ux = Math.sin(v.ang);
+        const uy = -Math.cos(v.ang);
+        const uvx = rVx / spd;
+        const uvy = rVy / spd;
+        const dot = ux * uvx + uy * uvy;
+        const absDot = Math.abs(dot); 
+        
+        const baseCd = v.type === 'ship' ? 0.0003 : 0.0002; 
+        const bellyCd = v.type === 'ship' ? 0.003 : 0.002; 
+        const currentCd = Utils.lerp(bellyCd, baseCd, absDot); // More drag when broadside
+        const dragForce = 0.5 * den * (spd * spd) * currentCd * (v.w * v.h);
+        
+        v.vx -= (uvx * dragForce / v.mass) * dt;
+        v.vy -= (uvy * dragForce / v.mass) * dt;
+        
+        // Body Lift (simplified)
+        if (v.type === 'ship' && spd > 30) {
+            const liftX = -uvy; 
+            const liftY = uvx;
+            const liftMag = dragForce * 0.5 * (dot); 
+            v.vx += liftX * liftMag / v.mass * dt;
+            v.vy += liftY * liftMag / v.mass * dt;
+        }
+        
+        // Aerodynamic Damping
+        v.angVel *= (1.0 - (den * spd * 0.0002)); 
+        
+        // Weather Vane effect (Rocket tries to flip tail-first naturally unless controlled)
+        if (spd > 50) {
+            const angleOfAttack = Math.atan2(rVy, rVx) - (v.ang - Math.PI/2);
+            // v.angVel += Math.sin(angleOfAttack) * spd * 0.0001 * dt; // Instability
+        }
+    }
+    
+    integrate(v, dt) {
+        v.ang += v.angVel * dt; 
+        v.ang = Utils.normalizeAngle(v.ang);
+        v.x += v.vx * dt; v.y += v.vy * dt;
+    }
+}
+
+class Autopilot {
+    run(v, dt) {
+        if (v.fuel <= 0) { v.thTgt = 0; v.auto = false; return; }
+        
+        const targetX = (v.type === CONSTANTS.VESSEL.BOOSTER ? CONFIG.MECHAZILLA.X : CONFIG.SHIP_PAD.X);
+        const errX = targetX - v.x;
+        const alt = CONFIG.PAD_Y - v.y - v.h/2;
+        
+        switch (v.autoMode) {
+            case CONSTANTS.AUTO.LAND: this.modeLand(v, dt, alt, errX); break;
+            case CONSTANTS.AUTO.HOVER: this.modeHover(v, dt, -100); break;
+            case CONSTANTS.AUTO.ORBIT: this.modeOrbit(v, dt, alt); break;
+            case CONSTANTS.AUTO.COAST: v.thTgt = 0; v.angVel -= v.angVel * 1.0 * dt; break;
+        }
+    }
+
+    modeLand(v, dt, alt, errX) {
+        if (v.type === CONSTANTS.VESSEL.SHIP) this.landShip(v, dt, alt, errX);
+        else this.landBooster(v, dt, alt, errX);
+    }
+
+    landShip(v, dt, alt, errX) {
+        // "Belly Flop" logic
+        const flipAlt = 500 + (v.vy * 4); 
+        
+        if (alt > flipAlt) {
+            // Gliding phase
+            v.thTgt = 0; v.gearTgt = false;
+            let targetAng = -Math.PI / 2; // Horizontal
+            const glideFactor = Utils.clamp(errX * 0.003, -0.5, 0.5);
+            targetAng += glideFactor; 
+            const angErr = targetAng - v.ang;
+            v.angVel += (angErr * 5.0 - v.angVel * 5.0) * dt; 
+        } else {
+            // Landing burn phase
+            v.gearTgt = (alt < 150); 
+            const angErr = 0 - v.ang; 
+            v.angVel += (angErr * 10.0 - v.angVel * 4.0) * dt; 
+            
+            const mass = v.mass + (v.fuel/100)*v.mass;
+            const maxAcc = (v.thrust / mass) - CONFIG.G;
+            if (maxAcc <= 0) { v.thTgt = 1.0; return; } 
+
+            // Hoverslam calculation
+            const targetV = Math.sqrt(2 * maxAcc * 0.65 * Math.max(0, alt - 5)); 
+            const vErr = v.vy - targetV;
+            const hoverTh = CONFIG.G / (v.thrust/mass);
+            
+            if (Math.abs(v.ang) < 0.8) {
+                // Lateral correction during burn
+                let hCorr = errX * 0.08;
+                v.angVel += (hCorr * 0.2) * dt;
+                
+                // PID-like throttle
+                let th = hoverTh + (vErr * 0.25);
+                
+                // Final descent smoothing
+                if (alt < 20) {
+                    th = hoverTh * 0.95;
+                    if(v.vy > 4) th = 1.0;
+                }
+                v.thTgt = Utils.clamp(th, 0, 1);
+            } else {
+                v.thTgt = 1.0; // Panic burn to rotate
+            }
+        }
+    }
+
+    landBooster(v, dt, alt, errX) {
+        if(alt < 300 && v.vy > 0) v.gearTgt = true;
+        
+        let steerBias = 0;
+        if (alt > 800) steerBias = Utils.clamp(errX * 0.002, -0.2, 0.2);
+        
+        const targetAng = Utils.clamp((errX * 0.005 - v.vx * 0.05) + steerBias, -0.5, 0.5); 
+        const angErr = targetAng - v.ang;
+        v.angVel += (angErr * 8.0 - v.angVel * 3.0) * dt;
+
+        const mass = v.mass + (v.fuel/100)*v.mass;
+        const maxAcc = (v.thrust / mass) - CONFIG.G;
+        const currentSpeed = v.vy; 
+        const catchAlt = 25; 
+        const hoverTh = CONFIG.G / (v.thrust/mass);
+
+        // Hover for catch
+        if (Math.abs(alt - catchAlt) < 30 && Math.abs(currentSpeed) < 30) {
+            const hErr = catchAlt - alt;
+            let targetV = -hErr * 0.8;
+            if (Math.abs(hErr) < 5) targetV = 0; 
+            const vErr = currentSpeed - targetV;
+            let th = hoverTh + vErr * 0.2; 
+            v.thTgt = Utils.clamp(th, 0, 1.0);
+            return;
+        }
+
+        if (currentSpeed < 0) { 
+            v.thTgt = alt < 100 ? 0.1 : 0;
+            if (alt > catchAlt + 50) v.thTgt = 0;
+            return;
+        }
+
+        const safety = 0.65; 
+        const stopDist = (currentSpeed**2) / (2 * maxAcc * safety);
+        
+        if (alt > stopDist + catchAlt + 120) {
+            v.thTgt = 0;
+        } else {
+            const distRemaining = Math.max(0, alt - catchAlt);
+            const targetV = Math.sqrt(2 * maxAcc * safety * distRemaining); 
+            const vErr = currentSpeed - targetV;
+            let th = hoverTh + vErr * 0.4; 
+            v.thTgt = Utils.clamp(th, 0, 1.0);
+        }
+    }
+
+    modeHover(v, dt, hTgt) {
+        const hErr = hTgt - v.y; const vyErr = -v.vy; 
+        let thOut = 0.3 + (hErr * 0.015) + (vyErr * 0.15);
+        v.thTgt = Utils.clamp(thOut, 0, 1);
+        v.angVel -= v.ang * 0.2 + v.angVel * 0.2;
+    }
+
+    modeOrbit(v, dt, alt) {
+        const pitchStart = 1000; const pitchEnd = 15000;
+        let targetPitch = 0;
+        if (alt > pitchStart) {
+            const ratio = Math.min(1, (alt - pitchStart) / (pitchEnd - pitchStart));
+            targetPitch = (Math.PI / 2) * ratio; 
+        }
+        const angErr = targetPitch - v.ang;
+        v.angVel += (angErr * 1.0 - v.angVel * 0.5) * dt;
+        if (alt < 30000) { v.thTgt = 1.0; } else { if (v.vx < 800) v.thTgt = 1.0; else v.thTgt = 0; }
+    }
+}
+
+class AudioSystem {
+    constructor() { this.enabled = true; this.ctx = null; this.ready = false; }
+    init() {
+        if (this.ctx && this.ctx.state === 'running') return;
+        try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            this.ctx = new AudioContext();
+            // Important: Handle suspended state for strict browsers
+            if (this.ctx.state === 'suspended') {
+                this.ctx.resume();
+            }
+            this.ready = true;
+            
+            // Engine Noise
+            const bufferSize = 2 * this.ctx.sampleRate;
+            const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+            const output = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                const white = Math.random() * 2 - 1;
+                output[i] = (0 + (0.05 * white)) / 1.05; 
+                output[i] *= 4.0; 
+            }
+            this.noise = this.ctx.createBufferSource();
+            this.noise.buffer = noiseBuffer;
+            this.noise.loop = true;
+            this.gain = this.ctx.createGain();
+            this.gain.gain.value = 0;
+            const filter = this.ctx.createBiquadFilter();
+            filter.type = 'lowpass'; filter.frequency.value = 100; 
+            this.noise.connect(filter); filter.connect(this.gain); this.gain.connect(this.ctx.destination);
+            this.noise.start(0); 
+        } catch(e) { 
+            console.warn("Audio init warning:", e);
+            this.enabled = false; 
+        }
+    }
+    update(v) {
+        if (!this.enabled || !this.ready || !this.ctx) return;
+        let targetVol = (v && v.active && !v.landed && !v.caught && !v.crashed) ? v.th * 0.5 : 0;
+        this.gain.gain.value = Utils.lerp(this.gain.gain.value, targetVol, 0.2);
+    }
+    toggle() {
+        this.enabled = !this.enabled;
+        if(this.enabled && this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+        document.getElementById('btn-audio').innerText = this.enabled ? "🔊" : "🔇";
+    }
+    playTone(freq, duration) {
+        if (!this.enabled || !this.ctx) return;
+        try {
+            const osc = this.ctx.createOscillator(); const g = this.ctx.createGain();
+            osc.frequency.value = freq; osc.type = 'sine'; g.gain.value = 0.1;
+            osc.connect(g); g.connect(this.ctx.destination);
+            osc.start(); 
+            g.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+            setTimeout(() => osc.stop(), duration * 1000);
+        } catch(e){}
+    }
+    // Fixed: Added speak method back for local text-to-speech fallback
+    speak(text) {
+        if (!this.enabled || !('speechSynthesis' in window)) return;
+        try {
+            window.speechSynthesis.cancel();
+            const u = new SpeechSynthesisUtterance(text);
+            u.lang = 'en-US'; u.rate = 1.2; u.pitch = 1.0;
+            window.speechSynthesis.speak(u);
+        } catch(e){}
+    }
+}
+
+class UIManager {
+    constructor(game) {
+        this.game = game;
+        this.els = {};
+        ['countdown', 'val-alt', 'val-spd', 'val-fuel', 'vessel-tag', 'auto-tag', 'center-msg', 'timer', 'throttle-fill', 'throttle-knob', 'fuel-bar'].forEach(id => {
+            this.els[id] = document.getElementById(id);
+        });
+    }
+    update() {
+        if (!this.els['timer']) return;
+        if (this.game.state === CONSTANTS.STATE.FLIGHT) {
+            this.els['timer'].innerText = "T+ " + this.game.time.toFixed(1);
+        } else {
+            this.els['timer'].innerText = "T- " + Math.abs(this.game.countdown).toFixed(1);
+        }
+        const v = this.game.vessels[this.game.focus];
+        if(!v) return;
+        this.els['val-alt'].innerText = Math.max(0, Math.floor(CONFIG.PAD_Y - v.y));
+        this.els['val-spd'].innerText = Math.floor(Math.abs(v.vy));
+        this.els['val-fuel'].innerText = Math.floor(v.fuel);
+        this.els['fuel-bar'].style.width = Math.floor(v.fuel) + '%';
+        this.els['fuel-bar'].style.background = v.fuel < 20 ? 'var(--warn)' : 'var(--primary)';
+        
+        this.els['auto-tag'].style.opacity = v.auto ? 1 : 0;
+        this.els['auto-tag'].innerText = "AUTO: " + v.autoMode;
+        document.getElementById('btn-gear').classList.toggle('active', v.gearTgt);
+        document.getElementById('btn-auto').classList.toggle('active', v.auto);
+        document.getElementById('btn-sas').classList.toggle('active', this.game.sas);
+        this.els['vessel-tag'].innerText = v.type.toUpperCase();
+
+        const throttleDisplay = v.auto ? v.thTgt : this.game.input.th;
+        const pct = throttleDisplay * 100;
+        this.els['throttle-fill'].style.height = pct + '%';
+        this.els['throttle-knob'].style.bottom = pct + '%';
+    }
+    showMessage(txt, color) {
+        const el = this.els['center-msg'];
+        if(!el) return;
+        el.innerText = txt; el.style.color = color;
+        el.style.opacity = 1; el.style.transform = 'scale(1.1)';
+        setTimeout(() => { el.style.opacity=0; el.style.transform='scale(1)'; }, 2500);
+    }
+    toggleSettings() {
+        const p = document.getElementById('settings-panel');
+        p.style.display = p.style.display === 'block' ? 'none' : 'block';
+    }
+    toggleMap() { document.getElementById('minimap-container').classList.toggle('closed'); }
+    toggleAutoMenu() { if(this.game.state === CONSTANTS.STATE.FLIGHT) document.getElementById('auto-selector').classList.toggle('active'); }
+}
+
+class Renderer {
+    constructor(canvas, game) {
+        this.cvs = canvas; this.ctx = canvas.getContext('2d', { alpha: false }); this.game = game;
+        this.mapCvs = document.getElementById('minimap-canvas');
+        if(this.mapCvs) this.mapCtx = this.mapCvs.getContext('2d');
+    }
+    resize() {
+        const dpr = window.devicePixelRatio || 1;
+        this.cvs.width = window.innerWidth * dpr; this.cvs.height = window.innerHeight * dpr;
+        this.ctx.setTransform(1, 0, 0, 1, 0, 0); this.ctx.scale(dpr, dpr);
+        if(this.mapCvs) {
+            this.mapCvs.width = 140 * dpr; this.mapCvs.height = 140 * dpr;
+            this.mapCtx.setTransform(1, 0, 0, 1, 0, 0); this.mapCtx.scale(dpr, dpr);
+        }
+    }
+    draw() {
+        if(!this.ctx) return;
+        const w = this.cvs.width / (window.devicePixelRatio||1);
+        const h = this.cvs.height / (window.devicePixelRatio||1);
+        const cam = this.game.cam;
+        
+        const alt = Math.max(0, CONFIG.PAD_Y - cam.y);
+        
+        // Sky Gradient
+        let skyGradient = this.ctx.createLinearGradient(0, 0, 0, h);
+        if (alt > 30000) { skyGradient.addColorStop(0, '#000'); skyGradient.addColorStop(1, '#000'); }
+        else if (alt > 10000) { skyGradient.addColorStop(0, '#000510'); skyGradient.addColorStop(1, '#113355'); }
+        else { skyGradient.addColorStop(0, '#114477'); skyGradient.addColorStop(1, '#5599bb'); }
+        
+        this.ctx.fillStyle = skyGradient;
+        this.ctx.fillRect(0, 0, w, h);
+        
+        // Stars
+        if (alt > 5000) {
+            this.ctx.fillStyle = '#fff';
+            const seed = Math.floor(cam.y / 500); 
+            for(let i=0; i<50; i++) {
+                const sx = ((i * 13214 + seed * 452) % w);
+                const sy = ((i * 4214 + seed * 123) % h);
+                this.ctx.fillRect(sx, sy, 1, 1);
+            }
+        }
+        
+        this.ctx.save();
+        this.ctx.translate(w/2, h/2);
+        let sx = (Math.random()-0.5) * cam.shake, sy = (Math.random()-0.5) * cam.shake;
+        this.game.cam.shake *= 0.9;
+        this.ctx.scale(cam.zoom, cam.zoom);
+        this.ctx.translate(-cam.x + sx, -cam.y + sy);
+        
+        // Ground
+        this.ctx.fillStyle = '#1a1a20';
+        this.ctx.fillRect(-50000, CONFIG.PAD_Y, 100000, 50000); 
+        this.ctx.fillStyle = '#111';
+        for(let i=-20; i<=20; i++) {
+            this.ctx.fillRect(i * 200, CONFIG.PAD_Y, 2, 10);
+        }
+        
+        this.drawMechazilla();
+        this.drawShipPad();
+
+        if (this.game.settings.config.trajectory && this.game.state === CONSTANTS.STATE.FLIGHT && !this.game.replayMode && this.game.vessels[this.game.focus]) {
+            this.drawTrajectory(this.game.vessels[this.game.focus]);
+        }
+
+        [CONSTANTS.VESSEL.SHIP, CONSTANTS.VESSEL.BOOSTER].forEach(key => {
+            const v = this.game.vessels[key];
+            if (v && (v.active || v.landed || v.caught || this.game.state === CONSTANTS.STATE.REPLAY)) this.drawVessel(v);
+        });
+
+        this.drawParticles();
+        this.ctx.restore();
+        this.drawMinimap();
+    }
+    
+    drawShipPad() {
+        const pad = CONFIG.SHIP_PAD;
+        this.ctx.fillStyle = '#444';
+        this.ctx.beginPath();
+        this.ctx.moveTo(pad.X - pad.W, CONFIG.PAD_Y);
+        this.ctx.lineTo(pad.X + pad.W, CONFIG.PAD_Y);
+        this.ctx.lineTo(pad.X + pad.W + 20, CONFIG.PAD_Y + 10);
+        this.ctx.lineTo(pad.X - pad.W - 20, CONFIG.PAD_Y + 10);
+        this.ctx.fill();
+        
+        this.ctx.fillStyle = '#666';
+        this.ctx.fillRect(pad.X - 10, CONFIG.PAD_Y, 20, 5);
+    }
+    
+    drawParticles() {
+        const particles = this.game.particles.particles;
+        if (!particles.length) return;
+        const originalComp = this.ctx.globalCompositeOperation;
+        
+        for (let p of particles) {
+            if (!p.active) continue;
+            let size = p.s;
+            let alpha = p.life;
+            if (p.c === 'fire') {
+                this.ctx.globalCompositeOperation = 'lighter'; 
+                const r = 255; 
+                const g = Math.floor(Math.max(0, p.life * 220)); 
+                const b = Math.floor(Math.max(0, p.life * 50));
+                this.ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+                this.ctx.save();
+                this.ctx.translate(p.x, p.y);
+                const angle = Math.atan2(p.vy, p.vx) + (Math.random()-0.5)*0.2;
+                this.ctx.rotate(angle);
+                this.ctx.scale(2.0, 0.6); 
+                this.ctx.beginPath();
+                this.ctx.arc(0, 0, size, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.restore();
+                this.ctx.globalCompositeOperation = originalComp; 
+            } else if (p.c === 'smoke') {
+                const gray = Math.floor(150 + p.life * 50); 
+                this.ctx.fillStyle = `rgba(${gray}, ${gray}, ${gray}, ${alpha * 0.3})`;
+                this.ctx.beginPath();
+                this.ctx.arc(p.x, p.y, size * 2, 0, Math.PI * 2);
+                this.ctx.fill();
+            } else if (p.c === 'shock') {
+                 this.ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
+                 this.ctx.lineWidth = 3;
+                 this.ctx.beginPath();
+                 this.ctx.arc(p.x, p.y, (1.2-p.life) * 80, 0, Math.PI*2);
+                 this.ctx.stroke();
+            }
+        }
+        this.ctx.globalAlpha = 1.0;
+    }
+    
+    drawMinimap() {
+        if (!this.mapCtx) return;
+        const ctx = this.mapCtx;
+        const w = 140; const h = 140;
+        ctx.fillStyle = '#050a10';
+        ctx.fillRect(0, 0, w, h);
+        ctx.save();
+        ctx.translate(w/2, h - 20); 
+        const scale = 0.12; 
+        ctx.scale(scale, scale);
+        
+        // Ground
+        ctx.strokeStyle = '#334455';
+        ctx.lineWidth = 3 / scale;
+        ctx.beginPath(); ctx.moveTo(-600, 0); ctx.lineTo(600, 0); ctx.stroke();
+        
+        // Tower
+        ctx.fillStyle = '#556677';
+        ctx.fillRect(CONFIG.MECHAZILLA.X - 15, -240, 30, 240);
+        
+        // Vessels
+        [CONSTANTS.VESSEL.SHIP, CONSTANTS.VESSEL.BOOSTER].forEach(key => {
+            const v = this.game.vessels[key];
+            if (v && v.active) {
+                ctx.fillStyle = key === CONSTANTS.VESSEL.BOOSTER ? CONSTANTS.COLORS.PRIMARY : '#ffaa00';
+                ctx.beginPath();
+                ctx.arc(v.x, v.y - CONFIG.PAD_Y, 50, 0, Math.PI*2);
+                ctx.fill();
+                // Direction indicator
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 10;
+                ctx.beginPath();
+                ctx.moveTo(v.x, v.y - CONFIG.PAD_Y);
+                ctx.lineTo(v.x + Math.sin(v.ang)*80, (v.y - CONFIG.PAD_Y) - Math.cos(v.ang)*80);
+                ctx.stroke();
+            }
+        });
+        ctx.restore();
+        
+        // Radar Circle
+        ctx.strokeStyle = 'rgba(0,170,255,0.3)';
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(w/2, h/2, w/2-2, 0, Math.PI*2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(w/2, h/2, w/4, 0, Math.PI*2); ctx.stroke();
+    }
+
+    drawMechazilla() {
+        const tx = CONFIG.MECHAZILLA.X, ty = CONFIG.MECHAZILLA.Y, tw = CONFIG.MECHAZILLA.TOWER_W;
+        
+        // Tower Structure
+        this.ctx.fillStyle = '#222';
+        this.ctx.fillRect(tx - tw/2, CONFIG.PAD_Y - 300, tw, 300); 
+        
+        // Truss Detail
+        this.ctx.strokeStyle = '#444';
+        this.ctx.lineWidth = 2;
+        this.ctx.beginPath();
+        for(let y = CONFIG.PAD_Y; y > CONFIG.PAD_Y - 300; y -= 30) {
+            this.ctx.moveTo(tx - tw/2, y); this.ctx.lineTo(tx + tw/2, y - 30);
+            this.ctx.moveTo(tx + tw/2, y); this.ctx.lineTo(tx - tw/2, y - 30);
+        }
+        this.ctx.stroke();
+        
+        // Rails
+        this.ctx.fillStyle = '#111';
+        this.ctx.fillRect(tx - tw/2 - 2, CONFIG.PAD_Y - 300, 4, 300);
+        this.ctx.fillRect(tx + tw/2 - 2, CONFIG.PAD_Y - 300, 4, 300);
+
+        // Carriage & Arms
+        const armW = CONFIG.MECHAZILLA.ARM_W; 
+        const armH = CONFIG.MECHAZILLA.ARM_H; 
+        const openVal = this.game.mechazilla.armOpen;
+        const carriageY = ty; 
+        
+        // Carriage
+        this.ctx.fillStyle = '#333';
+        this.ctx.fillRect(tx - tw/2 - 5, carriageY - 12, tw + 10, 24); 
+        
+        const rocketHalfW = this.game.vessels.booster.w / 2;
+        const baseGap = rocketHalfW + 2; 
+        const slideDist = baseGap + (openVal * 40);
+        
+        // Arms
+        this.ctx.fillStyle = '#555';
+        this.ctx.fillRect(tx - tw/2 - slideDist - armW, carriageY - armH/2, slideDist + armW, armH); 
+        this.ctx.fillRect(tx + tw/2, carriageY - armH/2, slideDist + armW, armH);
+        
+        // Pads
+        const isReady = openVal < 0.1;
+        this.ctx.fillStyle = isReady ? '#0f0' : '#888'; 
+        this.ctx.fillRect(tx - slideDist - 8, carriageY - 6, 8, 12); 
+        this.ctx.fillRect(tx + slideDist, carriageY - 6, 8, 12); 
+        
+        // Warning lights
+        if (this.game.time % 1.0 < 0.5) {
+            this.ctx.fillStyle = '#f00';
+            this.ctx.fillRect(tx - tw/2 - 2, CONFIG.PAD_Y - 300, 4, 4);
+            this.ctx.fillRect(tx + tw/2 - 2, CONFIG.PAD_Y - 300, 4, 4);
+        }
+    }
+
+    drawTrajectory(v) {
+        if (!v.active || v.landed) return;
+        this.ctx.beginPath();
+        this.ctx.strokeStyle = 'rgba(255, 255, 0, 0.4)';
+        this.ctx.lineWidth = 2;
+        this.ctx.setLineDash([8, 8]);
+        let sx=v.x, sy=v.y, svx=v.vx, svy=v.vy;
+        this.ctx.moveTo(sx, sy);
+        for(let i=0; i<400; i++) {
+            svy += CONFIG.G * CONFIG.DT_FIXED; sx += svx * CONFIG.DT_FIXED; sy += svy * CONFIG.DT_FIXED;
+            if(sy + v.h/2 >= CONFIG.PAD_Y) { 
+                this.ctx.lineTo(sx, CONFIG.PAD_Y); 
+                // Draw impact X
+                this.ctx.stroke();
+                this.ctx.beginPath();
+                this.ctx.fillStyle = 'rgba(255,0,0,0.5)';
+                this.ctx.arc(sx, CONFIG.PAD_Y, 3, 0, Math.PI*2);
+                this.ctx.fill();
+                break; 
+            }
+            if(i%15===0) this.ctx.lineTo(sx, sy);
+        }
+        this.ctx.stroke(); this.ctx.setLineDash([]);
+    }
+    drawVessel(v) {
+        this.ctx.save();
+        this.ctx.translate(v.x, v.y);
+        this.ctx.rotate(v.ang);
+        
+        if (v.id === this.game.focus && !this.game.replayMode) {
+             this.ctx.shadowBlur = 20;
+             this.ctx.shadowColor = 'rgba(0, 170, 255, 0.4)';
+        }
+
+        // Grid Fins (Booster)
+        if (v.type === CONSTANTS.VESSEL.BOOSTER) {
+            this.ctx.fillStyle = '#222';
+            this.ctx.fillRect(-v.w/2 - 6, -50, 6, 10);
+            this.ctx.fillRect(v.w/2, -50, 6, 10);
+            
+            // Interstage
+            this.ctx.fillStyle = '#111';
+            this.ctx.fillRect(-v.w/2, -v.h/2, v.w, 10);
+        }
+
+        // Main Body
+        const shine = this.ctx.createLinearGradient(-v.w/2, 0, v.w/2, 0);
+        shine.addColorStop(0, '#999'); shine.addColorStop(0.3, '#eee'); shine.addColorStop(0.5, '#fff'); shine.addColorStop(1, '#888');
+        this.ctx.fillStyle = shine;
+        this.ctx.fillRect(-v.w/2, -v.h/2, v.w, v.h);
+
+        // Engines
+        const nozzleCount = v.type === CONSTANTS.VESSEL.BOOSTER ? 3 : 2;
+        const nozzleW = v.w / nozzleCount;
+        const nozzleH = 6;
+        this.ctx.fillStyle = '#111';
+        const startX = -v.w/2;
+        const startY = v.h/2;
+        
+        for(let i=0; i<nozzleCount; i++) {
+            const nx = startX + i * nozzleW;
+            this.ctx.beginPath();
+            this.ctx.moveTo(nx + 1, startY);
+            this.ctx.lineTo(nx + nozzleW - 1, startY);
+            this.ctx.lineTo(nx + nozzleW - 2, startY + nozzleH);
+            this.ctx.lineTo(nx + 2, startY + nozzleH);
+            this.ctx.fill();
+        }
+        
+        // Ship Specifics (Flaps & Nosecone)
+        if (v.type === CONSTANTS.VESSEL.SHIP) {
+            // Nosecone
+            this.ctx.beginPath(); this.ctx.moveTo(-v.w/2, -v.h/2); this.ctx.lineTo(v.w/2, -v.h/2);
+            this.ctx.bezierCurveTo(v.w/2, -v.h/2 - 20, -v.w/2, -v.h/2 - 20, -v.w/2, -v.h/2);
+            this.ctx.fillStyle = shine;
+            this.ctx.fill();
+            
+            // Heat shield (black side)
+            this.ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            this.ctx.fillRect(-v.w/2, -v.h/2, v.w/2, v.h);
+            
+            // Flaps
+            this.ctx.fillStyle = '#333';
+            const aoa = Math.abs(Math.cos(v.ang)); 
+            const flapExt = aoa * 8; 
+            // Aft
+            this.ctx.fillRect(-v.w/2 - 8 - flapExt, v.h/2 - 25, 8 + flapExt, 20); 
+            this.ctx.fillRect(v.w/2, v.h/2 - 25, 8 + flapExt, 20);
+            // Forward
+            this.ctx.fillRect(-v.w/2 - 6 - flapExt, -v.h/2 - 10, 6 + flapExt, 12);
+            this.ctx.fillRect(v.w/2, -v.h/2 - 10, 6 + flapExt, 12);
+            
+            // Landing Legs (internal/pop-out)
+            if (v.gear > 0.1) {
+                this.ctx.fillStyle = '#111';
+                // Left Leg
+                this.ctx.save(); this.ctx.translate(-v.w/2 + 2, v.h/2 - 5); this.ctx.rotate(0.5 * v.gear);
+                this.ctx.fillRect(-4, 0, 4, 18); this.ctx.fillRect(-8, 16, 8, 2); this.ctx.restore();
+                // Right Leg
+                this.ctx.save(); this.ctx.translate(v.w/2 - 2, v.h/2 - 5); this.ctx.rotate(-0.5 * v.gear);
+                this.ctx.fillRect(0, 0, 4, 18); this.ctx.fillRect(0, 16, 8, 2); this.ctx.restore();
+            }
+
+        } else {
+            // Booster Legs (Fixed) - Only visible if gear deployed
+            if (v.gear > 0.1) {
+                // Not really used in catch logic, but good visual fallback
+            }
+        }
+        this.ctx.restore();
+    }
+}
+
+class InputManager {
+    constructor(game) {
+        this.game = game;
+        this.x = 0;
+        this.th = 0;
+        this.isDrag = false;
+        this.dragStart = { x: 0, y: 0 };
+        this.camStart = { x: 0, y: 0 };
+        this.pinchDist = 0;
+        this.pointers = new Map();
+        this.setup();
+    }
+    setup() {
+        document.addEventListener('keydown', (e) => {
+            if(e.key === 'ArrowLeft') this.x = -1;
+            if(e.key === 'ArrowRight') this.x = 1;
+            if(e.key === ' ' || e.key === 'ArrowUp') this.th = 1;
+        });
+        document.addEventListener('keyup', (e) => {
+             if(e.key === 'ArrowLeft' || e.key === 'ArrowRight') this.x = 0;
+             if(e.key === ' ' || e.key === 'ArrowUp') this.th = 0;
+        });
+        const joy = document.getElementById('joystick-zone');
+        const stick = document.getElementById('stick-handle');
+        let joyId = null;
+        const handleJoy = (ex, ey, rect) => {
+            const maxR = rect.width/2;
+            let dx = ex - (rect.left + maxR);
+            let dy = ey - (rect.top + maxR);
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist > maxR) { dx = (dx/dist)*maxR; dy = (dy/dist)*maxR; }
+            stick.style.transform = `translate(-50%, -50%) translate(${dx}px, ${dy}px)`;
+            this.x = dx / maxR;
+        };
+        joy.onpointerdown = e => { joyId = e.pointerId; e.stopPropagation(); handleJoy(e.clientX, e.clientY, joy.getBoundingClientRect()); };
+        joy.onpointermove = e => { if(e.pointerId === joyId) { e.stopPropagation(); handleJoy(e.clientX, e.clientY, joy.getBoundingClientRect()); } };
+        joy.onpointerup = e => { if(e.pointerId === joyId) { joyId = null; this.x = 0; stick.style.transform = `translate(-50%, -50%)`; } };
+        
+        const thZone = document.getElementById('throttle-zone');
+        let thId = null;
+        const handleTh = (ey, rect) => {
+            let val = Utils.clamp(1.0 - (ey - rect.top) / rect.height, 0, 1);
+            this.th = val;
+            this.game.ui.update(); // Force UI update
+            const v = this.game.vessels[this.game.focus];
+            if(v && v.auto && Math.abs(v.thTgt - val) > 0.1) v.auto = false;
+        };
+        thZone.onpointerdown = e => { thId = e.pointerId; e.stopPropagation(); handleTh(e.clientY, thZone.getBoundingClientRect()); };
+        thZone.onpointermove = e => { if(e.pointerId === thId) { e.stopPropagation(); handleTh(e.clientY, thZone.getBoundingClientRect()); } };
+        thZone.onpointerup = e => { thId = null; };
+        
+        const cvs = document.getElementById('game-canvas');
+        cvs.addEventListener('wheel', (e) => this.handleWheel(e), { passive: false });
+        cvs.addEventListener('pointerdown', (e) => this.handlePointerDown(e));
+        cvs.addEventListener('pointermove', (e) => this.handlePointerMove(e));
+        cvs.addEventListener('pointerup', (e) => this.handlePointerUp(e));
+        cvs.addEventListener('pointercancel', (e) => this.handlePointerUp(e));
+    }
+    handleWheel(e) {
+        e.preventDefault();
+        const zoomSpeed = 0.001;
+        this.game.cam.zoom = Utils.clamp(this.game.cam.zoom - e.deltaY * zoomSpeed, CONFIG.CAM.ZOOM_MIN, CONFIG.CAM.ZOOM_MAX);
+    }
+    handlePointerDown(e) {
+        this.pointers.set(e.pointerId, e);
+        if (this.pointers.size === 1) {
+            // Click to select vessel
+            const rect = e.target.getBoundingClientRect();
+            const wx = (e.clientX - window.innerWidth/2) / this.game.cam.zoom + this.game.cam.x;
+            const wy = (e.clientY - window.innerHeight/2) / this.game.cam.zoom + this.game.cam.y;
+            let clicked = null;
+            [CONSTANTS.VESSEL.BOOSTER, CONSTANTS.VESSEL.SHIP].forEach(key => {
+                const v = this.game.vessels[key];
+                if(v && Utils.dist(wx, wy, v.x, v.y) < 40) clicked = key;
+            });
+            if(clicked) {
+                this.game.focus = clicked;
+                this.game.cam.target = this.game.vessels[clicked];
+                this.game.cam.auto = true; 
+                this.game.ui.showMessage("TARGET: " + clicked.toUpperCase(), CONSTANTS.COLORS.PRIMARY);
+            } else {
+                this.game.cam.auto = false; 
+                this.isDrag = true;
+                this.dragStart = { x: e.clientX, y: e.clientY };
+                this.camStart = { x: this.game.cam.x, y: this.game.cam.y };
+            }
+        } else if (this.pointers.size === 2) {
+            this.isDrag = false;
+            const pts = Array.from(this.pointers.values());
+            this.pinchDist = Utils.dist(pts[0].clientX, pts[0].clientY, pts[1].clientX, pts[1].clientY);
+        }
+    }
+    handlePointerMove(e) {
+        this.pointers.set(e.pointerId, e);
+        if (this.pointers.size === 1 && this.isDrag) {
+            const dx = (e.clientX - this.dragStart.x) / this.game.cam.zoom;
+            const dy = (e.clientY - this.dragStart.y) / this.game.cam.zoom;
+            this.game.cam.x = this.camStart.x - dx;
+            this.game.cam.y = this.camStart.y - dy;
+        } else if (this.pointers.size === 2) {
+            const pts = Array.from(this.pointers.values());
+            const newDist = Utils.dist(pts[0].clientX, pts[0].clientY, pts[1].clientX, pts[1].clientY);
+            const scale = newDist / this.pinchDist;
+            this.game.cam.zoom = Utils.clamp(this.game.cam.zoom * scale, CONFIG.CAM.ZOOM_MIN, CONFIG.CAM.ZOOM_MAX);
+            this.pinchDist = newDist;
+        }
+    }
+    handlePointerUp(e) {
+        this.pointers.delete(e.pointerId);
+        if (this.pointers.size < 2) this.pinchDist = 0;
+        if (this.pointers.size === 0) this.isDrag = false;
+    }
+}
+
+class RocketGame {
+    constructor() {
+        this.settings = new SettingsManager();
+        this.particles = new ParticleSystem();
+        this.physics = new PhysicsEngine(this);
+        this.autopilot = new Autopilot();
+        this.audio = new AudioSystem();
+        this.ui = new UIManager(this);
+        this.input = new InputManager(this);
+        this.ai = new GeminiBridge();
+        
+        this.cam = { x: 0, y: -100, zoom: 0.8, shake: 0, auto: true };
+        this.vessels = {};
+        
+        this.focus = CONSTANTS.VESSEL.BOOSTER;
+        this.state = CONSTANTS.STATE.MENU;
+        this.time = 0;
+        this.countdown = 10;
+        this.mechazilla = { armOpen: 1.0 };
+        this.weather = { wind: 0, isDay: true };
+        this.replayMode = false;
+        this.replayData = [];
+        this.replayIndex = 0;
+        this.sas = true;
+        this.lastTime = 0;
+    }
+
+    init() {
+        this.settings.applyToDOM();
+        this.canvas = document.getElementById('game-canvas');
+        this.renderer = new Renderer(this.canvas, this);
+        window.addEventListener('resize', () => this.renderer.resize());
+        this.renderer.resize();
+        this.fetchWeather();
+        this.setupVessels(); 
+        requestAnimationFrame(t => this.loop(t));
+        setInterval(() => this.updateClock(), 1000);
+        this.attachEvents();
+    }
+    
+    attachEvents() {
+        const bind = (id, fn) => { const el = document.getElementById(id); if(el) el.addEventListener('click', fn); };
+        bind('btn-settings', () => this.ui.toggleSettings());
+        bind('btn-map', () => this.ui.toggleMap());
+        bind('btn-audio', () => this.audio.toggle());
+        bind('opt-traj', (e) => this.settings.toggle('trajectory', e.currentTarget));
+        bind('opt-mass', (e) => this.settings.toggle('massShift', e.currentTarget));
+        bind('opt-replay', (e) => this.settings.toggle('replay', e.currentTarget));
+        bind('vessel-tag', () => this.resetCam());
+        bind('mode-land', () => this.setMode(CONSTANTS.AUTO.LAND));
+        bind('mode-hover', () => this.setMode(CONSTANTS.AUTO.HOVER));
+        bind('mode-off', () => this.setMode(CONSTANTS.AUTO.OFF));
+        bind('btn-cam', () => this.switchVessel());
+        bind('btn-gear', () => this.toggleGear());
+        bind('btn-sas', () => this.toggleSAS());
+        bind('btn-auto', () => this.ui.toggleAutoMenu());
+        bind('btn-sep', () => this.separation());
+        bind('btn-rst', () => this.softReset());
+        bind('btn-bft', () => this.performBFT());
+        
+        bind('btn-ai-status', () => {
+            const v = this.vessels[this.focus];
+            const status = `Alt: ${Math.round(CONFIG.PAD_Y - v.y)}m, Speed: ${Math.round(Math.abs(v.vy))}m/s, Fuel: ${Math.round(v.fuel)}%, Phase: ${this.state}`;
+            
+            // Show panel
+            const panel = document.getElementById('report-panel');
+            if(panel) {
+                panel.style.display = 'flex';
+                document.getElementById('report-content').innerHTML = `
+                    <strong>ALTITUDE:</strong> ${Math.round(CONFIG.PAD_Y - v.y)} m<br>
+                    <strong>VELOCITY:</strong> ${Math.round(v.vy)} m/s<br>
+                    <strong>FUEL:</strong> ${Math.round(v.fuel)} %<br>
+                    <strong>STATUS:</strong> ${v.active ? "NOMINAL" : "OFFLINE"}<br>
+                    <strong>MODE:</strong> ${v.auto ? v.autoMode : "MANUAL"}
+                `;
+            }
+            this.ai.generateCommentary(status, true);
+        });
+    }
+
+    setupVessels() {
+        const b = { 
+            id: CONSTANTS.VESSEL.BOOSTER, type: CONSTANTS.VESSEL.BOOSTER, 
+            x: 0, y: CONFIG.PAD_Y - CONFIG.BOOSTER.H/2 - 5, 
+            vx: 0, vy: 0, ang: 0, angVel: 0, 
+            fuel: 100, fuelMax: CONFIG.BOOSTER.FUEL,
+            thrust: CONFIG.BOOSTER.THRUST, mass: CONFIG.BOOSTER.MASS,
+            th: 0, thTgt: 0, gear: 1, gearTgt: true, gearOffset: 12,
+            auto: false, autoMode: CONSTANTS.AUTO.OFF, 
+            active: true, landed: false, crashed: false, caught: false, hasLiftedOff: false,
+            w: CONFIG.BOOSTER.W, h: CONFIG.BOOSTER.H,
+            trail: [], history: []
+        };
+        const s = { 
+            id: CONSTANTS.VESSEL.SHIP, type: CONSTANTS.VESSEL.SHIP, 
+            x: 0, y: b.y - CONFIG.BOOSTER.H/2 - CONFIG.SHIP.H/2, 
+            vx: 0, vy: 0, ang: 0, angVel: 0, 
+            fuel: 100, fuelMax: CONFIG.SHIP.FUEL,
+            thrust: CONFIG.SHIP.THRUST, mass: CONFIG.SHIP.MASS,
+            th: 0, thTgt: 0, gear: 0, gearTgt: false, gearOffset: 15,
+            auto: false, autoMode: CONSTANTS.AUTO.OFF, 
+            active: true, landed: false, crashed: false, sep: false, hasLiftedOff: false,
+            w: CONFIG.SHIP.W, h: CONFIG.SHIP.H,
+            trail: [], history: []
+        };
+        this.vessels = { [CONSTANTS.VESSEL.BOOSTER]: b, [CONSTANTS.VESSEL.SHIP]: s };
+        this.focus = CONSTANTS.VESSEL.BOOSTER;
+        if(this.cam) this.cam.target = b; 
+    }
+
+    performBFT() {
+        const v = this.vessels[this.focus];
+        if(!v || !v.active) return;
+        
+        this.ui.showMessage("BOOST BURN!", CONSTANTS.COLORS.WARN);
+        this.audio.playTone(200, 0.5);
+        this.cam.shake = 10;
+        v.vy -= 20 * Math.cos(v.ang);
+        v.vx += 20 * Math.sin(v.ang);
+        
+        for(let i=0; i<30; i++) {
+            this.particles.add(
+                v.x + Utils.rand(-10, 10), 
+                v.y + Utils.rand(-20, 20), 
+                Utils.rand(-100, 100), 
+                Utils.rand(-100, 100), 
+                Utils.rand(2, 5), 
+                'smoke', 0.5
+            );
+        }
+    }
+
+    handleLaunch() {
+        if (this.state !== CONSTANTS.STATE.MENU) return;
+        
+        try { this.audio.init(); } catch(e) { console.warn(e); }
+        
+        const sc = document.getElementById('start-screen');
+        if(sc) {
+            sc.style.opacity = 0;
+            setTimeout(() => { sc.style.display = 'none'; }, 500);
+        }
+        
+        this.setupVessels();
+        this.state = CONSTANTS.STATE.COUNTDOWN;
+        this.countdown = 10;
+        this.time = 0;
+        
+        const cdEl = document.getElementById('countdown');
+        if(cdEl) {
+            cdEl.style.opacity = 1;
+            cdEl.innerText = "10";
+        }
+        this.audio.speak("T minus 10 seconds");
+    }
+
+    liftoff() {
+        this.state = CONSTANTS.STATE.FLIGHT;
+        const cdEl = document.getElementById('countdown');
+        if(cdEl) cdEl.style.opacity = 0;
+        
+        const autoBtn = document.getElementById('btn-auto');
+        if(autoBtn) autoBtn.classList.remove('disabled');
+        
+        const b = this.vessels.booster;
+        b.thTgt = 1.0; b.gearTgt = false; b.y -= 25; b.vy = -10; b.hasLiftedOff = false; 
+        this.input.th = 1.0;
+        for(let i=0; i<100; i++) this.particles.add(b.x, b.y + 50, Utils.rand(-30, 30), Utils.rand(10, 50), Utils.rand(5,10), 'fire');
+        
+        this.ai.generateCommentary("Liftoff confirmed. Tower cleared.");
+    }
+
+    loop(now) {
+        requestAnimationFrame(t => this.loop(t));
+        let dt = (now - this.lastTime) / 1000;
+        this.lastTime = now;
+        if(dt > 0.1) dt = 0.1; 
+        
+        if (this.state === CONSTANTS.STATE.REPLAY) {
+            this.updateReplay(); 
+        } else {
+            this.update(dt);
+        }
+        this.renderer.draw();
+    }
+
+    update(dt) {
+        if (this.state === CONSTANTS.STATE.FLIGHT) this.time += dt;
+        
+        if (this.state === CONSTANTS.STATE.COUNTDOWN) {
+            const prev = Math.ceil(this.countdown);
+            this.countdown -= dt;
+            const c = Math.ceil(this.countdown);
+            if (c !== prev) {
+                const el = document.getElementById('countdown');
+                if (c >= 0) {
+                    if(el) {
+                        el.innerText = c; 
+                        el.style.opacity = 1; 
+                        el.style.transform = 'scale(1.2)';
+                        setTimeout(() => el.style.transform = 'scale(1)', 100);
+                    }
+                    this.audio.playTone(800, 0.1);
+                    if(c > 0 && c <= 5) this.audio.speak(c.toString());
+                }
+                if (c === 0) {
+                    if(el) el.innerText = "LAUNCH";
+                    this.audio.playTone(1200, 0.5);
+                    this.liftoff(); 
+                }
+            }
+        }
+        
+        if (this.state === CONSTANTS.STATE.FLIGHT) {
+            this.physics.update(this.vessels.booster, dt);
+            if (this.vessels.ship.sep) {
+                this.physics.update(this.vessels.ship, dt);
+            } else {
+                const b = this.vessels.booster;
+                const s = this.vessels.ship;
+                s.x = b.x + Math.sin(b.ang) * (b.h/2 + s.h/2);
+                s.y = b.y - Math.cos(b.ang) * (b.h/2 + s.h/2);
+                s.vx = b.vx; s.vy = b.vy;
+                s.ang = b.ang; s.angVel = b.angVel;
+                s.active = true;
+            }
+        }
+
+        const t = this.cam.target;
+        if (t && this.cam.auto && !this.input.isDrag) {
+            const tx = t.x + t.vx * 0.4;
+            const ty = t.y + t.vy * 0.4;
+            this.cam.x = Utils.lerp(this.cam.x, tx, 0.1);
+            this.cam.y = Utils.lerp(this.cam.y, ty, 0.1);
+            const spd = Math.sqrt(t.vx**2 + t.vy**2);
+            // Smart Zoom
+            let targetZoom = 1.0;
+            if (spd > 100) targetZoom = 0.3;
+            else if (spd > 50) targetZoom = 0.5;
+            else if (Math.abs(CONFIG.PAD_Y - t.y) < 200) targetZoom = 1.2;
+            
+            this.cam.zoom = Utils.lerp(this.cam.zoom, targetZoom, 0.02);
+        }
+
+        if (this.vessels.booster.caught) {
+            this.mechazilla.armOpen = Utils.lerp(this.mechazilla.armOpen, 0.0, 0.15); 
+        } else {
+            const b = this.vessels.booster;
+            const dist = Math.abs(b.x - CONFIG.MECHAZILLA.X);
+            const near = dist < 120 && b.y > CONFIG.MECHAZILLA.Y - 250 && b.vy > 0;
+            this.mechazilla.armOpen = Utils.lerp(this.mechazilla.armOpen, near ? 1.0 : 0.1, 0.05);
+        }
+
+        this.particles.update(dt);
+        this.ui.update();
+        this.audio.update(this.vessels[this.focus]);
+    }
+
+    switchVessel() {
+        this.focus = this.focus === CONSTANTS.VESSEL.BOOSTER ? CONSTANTS.VESSEL.SHIP : CONSTANTS.VESSEL.BOOSTER;
+        this.cam.target = this.vessels[this.focus];
+        this.ui.showMessage("TRACKING: " + this.focus.toUpperCase(), CONSTANTS.COLORS.PRIMARY);
+    }
+    toggleGear() { const v = this.vessels[this.focus]; v.gearTgt = !v.gearTgt; }
+    toggleSAS() { this.sas = !this.sas; }
+    setMode(mode) {
+        const v = this.vessels[this.focus];
+        v.autoMode = mode;
+        v.auto = (mode !== CONSTANTS.AUTO.OFF);
+        const sel = document.getElementById('auto-selector');
+        if(sel) sel.classList.remove('active');
+    }
+    resetCam() { this.cam.target = this.vessels[this.focus]; this.cam.auto = true; }
+    
+    softReset() {
+        this.state = CONSTANTS.STATE.MENU;
+        this.setupVessels(); 
+        this.particles.clear(); 
+        this.input.th = 0;
+        
+        const sc = document.getElementById('start-screen');
+        if(sc) {
+            sc.style.display = 'flex';
+            sc.style.opacity = 1;
+        }
+        const btnAuto = document.getElementById('btn-auto');
+        if(btnAuto) btnAuto.classList.add('disabled');
+        
+        const cdEl = document.getElementById('countdown');
+        if(cdEl) cdEl.style.opacity = 0;
+        
+        this.ui.showMessage("SYSTEM READY", CONSTANTS.COLORS.PRIMARY);
+    }
+
+    separation() {
+        if(this.state !== CONSTANTS.STATE.FLIGHT) return;
+        const s = this.vessels.ship;
+        const b = this.vessels.booster;
+        s.sep = true;
+        s.vy -= 15; // Kick
+        
+        s.auto = true; s.autoMode = CONSTANTS.AUTO.LAND;
+        this.ui.showMessage("STAGE SEPARATION", CONSTANTS.COLORS.SUCCESS);
+        this.audio.speak("Staging Confirmed");
+        this.ai.generateCommentary("Staging confirmed. Ship on independent guidance.");
+        
+        b.auto = true; b.autoMode = CONSTANTS.AUTO.LAND;
+        
+        this.focus = CONSTANTS.VESSEL.SHIP;
+        this.cam.target = s;
+        this.particles.add(s.x, s.y + 40, 0, 0, 1, 'shock', 1.0);
+    }
+
+    recordHistory(v) {
+        v.history.push({ x: v.x, y: v.y, ang: v.ang, th: v.th, gear: v.gear });
+        if(v.history.length > 600) v.history.shift();
+    }
+
+    handleLanding(v, type) {
+        const vOk = Math.abs(v.vy) < 20;
+        const aOk = Math.abs(v.ang) < 0.3;
+        const gOk = v.gear > 0.8 || type === 'MECHAZILLA CATCH';
+        
+        if (vOk && aOk && gOk) {
+            if (type === 'MECHAZILLA CATCH') {
+                v.caught = true;
+                this.ui.showMessage("TOWER CATCH", CONSTANTS.COLORS.SUCCESS);
+                this.audio.speak("Tower Catch Confirmed");
+                this.ai.generateCommentary("Capture successful. Welcome home.");
+            } else {
+                v.landed = true;
+                v.y = CONFIG.PAD_Y - v.h/2 - (v.gear > 0.5 ? v.gearOffset : 0);
+                this.ui.showMessage("TOUCHDOWN", CONSTANTS.COLORS.SUCCESS);
+                this.audio.speak("Touchdown");
+                this.ai.generateCommentary("Touchdown confirmed. Securing engines.");
+            }
+            v.th = 0; v.vx = 0; v.vy = 0; v.angVel = 0; v.auto = false;
+            
+            if(this.settings.config.replay) {
+                setTimeout(() => this.startReplay(v), 2500);
+            }
+        } else {
+            v.crashed = true; v.active = false; v.th = 0;
+            this.ui.showMessage("R.U.D.", CONSTANTS.COLORS.WARN); // Rapid Unscheduled Disassembly
+            this.cam.shake = 50;
+            this.particles.add(v.x, v.y, 0, 0, 1, 'shock', 1.0);
+            for(let i=0; i<80; i++) this.particles.add(v.x, v.y, Utils.rand(-50,50), Utils.rand(-80,-10), Utils.rand(3,8), 'fire');
+            
+            this.ai.generateCommentary("Vehicle lost. Investigation protocol initiated.");
+            
+            if(this.settings.config.replay) {
+                setTimeout(() => this.startReplay(v), 2000);
+            }
+        }
+    }
+
+    startReplay(v) {
+        if(v.history.length < 10) return;
+        this.state = CONSTANTS.STATE.REPLAY;
+        this.replayMode = true;
+        this.replayData = [...v.history];
+        this.replayIndex = 0;
+        
+        const ri = document.getElementById('replay-indicator');
+        if(ri) ri.style.display = 'block';
+        
+        this.cam.target = null;
+    }
+
+    updateReplay() {
+        if (this.replayIndex >= this.replayData.length) {
+            this.state = CONSTANTS.STATE.MENU;
+            this.replayMode = false; 
+            
+            const ri = document.getElementById('replay-indicator');
+            if(ri) ri.style.display = 'none';
+            
+            const sc = document.getElementById('start-screen');
+            if(sc) {
+                sc.style.display = 'flex';
+                sc.style.opacity = 1;
+            }
+            return;
+        }
+        
+        const frame = this.replayData[this.replayIndex++];
+        const v = this.vessels[this.focus];
+        
+        v.x = frame.x; v.y = frame.y; v.ang = frame.ang; v.th = frame.th; v.gear = frame.gear;
+        this.cam.x = v.x; this.cam.y = v.y; this.cam.zoom = 1.2;
+    }
+
+    updateClock() {
+        const el = document.getElementById('real-time');
+        if(el) el.innerText = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    }
+
+    async fetchWeather() {
+        try {
+            const r = await fetch('https://api.open-meteo.com/v1/forecast?latitude=35.6895&longitude=139.6917&current_weather=true');
+            if(!r.ok) throw new Error('API Fail');
+            const d = await r.json();
+            const w = d.current_weather;
+            this.weather.wind = w.windspeed;
+            const wi = document.getElementById('weather-info');
+            if(wi) wi.innerText = `${w.temperature}°C / W:${w.windspeed}`;
+        } catch(e) {
+            const wi = document.getElementById('weather-info');
+            if(wi) wi.innerText = "OFFLINE";
+        }
+    }
+}
+
+// --- INITIALIZATION ---
+if (document.readyState === "complete" || document.readyState === "interactive") {
+    setTimeout(initGame, 1);
+} else {
+    document.addEventListener("DOMContentLoaded", initGame);
+}
+
+function initGame() {
+    console.log("Initializing Neural Link v16.1...");
+    if(window.gameInstance) return; 
+    
+    window.game = new RocketGame();
+    window.gameInstance = true;
+    
+    window.game.init();
+    
+    const btn = document.getElementById('btn-launch');
+    if(btn) {
+        btn.onclick = (e) => {
+            e.preventDefault(); e.stopPropagation();
+            window.game.handleLaunch();
+        };
+        btn.ontouchstart = (e) => {
+            e.preventDefault(); e.stopPropagation();
+            window.game.handleLaunch();
+        };
+    }
+    
+    document.getElementById('start-screen').onclick = (e) => {
+        if(e.target.id === 'start-screen') window.game.handleLaunch();
+    }
+}
+</script>
+</body>
+</html>
